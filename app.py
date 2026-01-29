@@ -82,12 +82,12 @@ def crear_ajuste_inventario(item_id, tipo, cantidad, costo):
         }
         payload = {
             "date": date.today().isoformat(),
-            "warehouse": {"id": WAREHOUSE_ID},
+            "warehouse": {"id": str(WAREHOUSE_ID)},  # Debe ser string
             "items": [{
-                "id": int(item_id),
+                "id": str(item_id),  # Debe ser string
                 "type": tipo,
                 "quantity": float(cantidad),
-                "cost": float(costo) if costo else 0
+                "unitCost": float(costo) if costo else 0  # Campo correcto: unitCost
             }]
         }
         response = requests.post(url, headers=headers, json=payload, timeout=30)
