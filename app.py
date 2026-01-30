@@ -326,11 +326,14 @@ if codigo_input:
                 st.markdown("---")
                 st.subheader("📝 Registrar conteo físico")
                 
+                # Si el stock en Alegra es negativo, iniciar en 0
+                valor_inicial = max(0, int(datos["cantidad_disponible"]))
+                
                 cantidad_contada = st.number_input(
                     "Cantidad física contada:",
                     min_value=0,
                     step=1,
-                    value=int(datos["cantidad_disponible"]),
+                    value=valor_inicial,
                     key="cantidad_contada"
                 )
                 
