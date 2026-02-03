@@ -696,24 +696,34 @@ def mostrar_producto_seleccionado(idx, producto_local, df):
             
             # Input para cantidad contada - GRANDE
             st.markdown("---")
-            st.subheader("📝 Registrar conteo físico")
+            
+            # En modo rápido, mostrar indicador visual y auto-focus
+            if st.session_state.modo_rapido:
+                st.markdown("""
+                <div style="background: linear-gradient(135deg, #00b4db 0%, #0083b0 100%); 
+                            color: white; padding: 10px 20px; border-radius: 10px; 
+                            text-align: center; margin-bottom: 15px; font-weight: bold;">
+                    ⚡ MODO RÁPIDO - Ingresa cantidad y presiona Enter para guardar
+                </div>
+                """, unsafe_allow_html=True)
+                # Auto-focus usando componente HTML con autofocus
+                st.components.v1.html("""
+                <script>
+                    setTimeout(function() {
+                        // Buscar el input de número en el documento padre
+                        const inputs = window.parent.document.querySelectorAll('input[type="number"]');
+                        if (inputs.length > 0) {
+                            inputs[0].focus();
+                            inputs[0].select();
+                        }
+                    }, 300);
+                </script>
+                """, height=0)
+            else:
+                st.subheader("📝 Registrar conteo físico")
             
             # Si el stock en Alegra es negativo, iniciar en 0
             valor_inicial = max(0, int(datos["cantidad_disponible"]))
-            
-            # En modo rápido, añadir script para auto-focus en el campo de cantidad
-            if st.session_state.modo_rapido:
-                st.markdown("""
-                <script>
-                setTimeout(function() {
-                    const numberInput = document.querySelector('input[type="number"]');
-                    if (numberInput) {
-                        numberInput.focus();
-                        numberInput.select();
-                    }
-                }, 100);
-                </script>
-                """, unsafe_allow_html=True)
             
             # Input numérico GRANDE
             st.markdown("##### 👇 Ingresa la cantidad contada:")
