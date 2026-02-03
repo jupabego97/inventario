@@ -12,15 +12,183 @@ st.set_page_config(
     layout="centered"
 )
 
+# ========== ESTILOS CSS Y JAVASCRIPT ==========
+
+st.markdown("""
+<style>
+/* Indicadores visuales de diferencia */
+.diff-ok {
+    background: linear-gradient(135deg, #00c853 0%, #69f0ae 100%);
+    color: white;
+    padding: 20px;
+    border-radius: 15px;
+    text-align: center;
+    font-size: 24px;
+    font-weight: bold;
+    box-shadow: 0 4px 15px rgba(0, 200, 83, 0.4);
+    animation: pulse-green 2s infinite;
+}
+
+.diff-warning {
+    background: linear-gradient(135deg, #ff9800 0%, #ffcc02 100%);
+    color: white;
+    padding: 20px;
+    border-radius: 15px;
+    text-align: center;
+    font-size: 24px;
+    font-weight: bold;
+    box-shadow: 0 4px 15px rgba(255, 152, 0, 0.4);
+    animation: pulse-yellow 2s infinite;
+}
+
+.diff-danger {
+    background: linear-gradient(135deg, #f44336 0%, #ff5252 100%);
+    color: white;
+    padding: 20px;
+    border-radius: 15px;
+    text-align: center;
+    font-size: 24px;
+    font-weight: bold;
+    box-shadow: 0 4px 15px rgba(244, 67, 54, 0.4);
+    animation: pulse-red 2s infinite;
+}
+
+@keyframes pulse-green {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+}
+
+@keyframes pulse-yellow {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+}
+
+@keyframes pulse-red {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+}
+
+/* Historial de sesión */
+.historial-item {
+    background: #f8f9fa;
+    border-left: 4px solid #007bff;
+    padding: 10px 15px;
+    margin: 5px 0;
+    border-radius: 0 8px 8px 0;
+    font-size: 14px;
+}
+
+.historial-item.success {
+    border-left-color: #28a745;
+}
+
+.historial-item.warning {
+    border-left-color: #ffc107;
+}
+
+/* Contador de progreso grande */
+.progress-big {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 15px 25px;
+    border-radius: 15px;
+    text-align: center;
+    margin: 10px 0;
+}
+
+.progress-big .number {
+    font-size: 36px;
+    font-weight: bold;
+}
+
+.progress-big .label {
+    font-size: 14px;
+    opacity: 0.9;
+}
+
+/* Modo rápido activo */
+.modo-rapido-activo {
+    background: linear-gradient(135deg, #00b4db 0%, #0083b0 100%);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 25px;
+    text-align: center;
+    font-weight: bold;
+    margin: 10px 0;
+}
+
+/* Input numérico móvil */
+input[type="number"] {
+    font-size: 24px !important;
+    text-align: center !important;
+}
+
+/* Atajos de teclado tooltip */
+.keyboard-hint {
+    background: #e9ecef;
+    color: #495057;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-family: monospace;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# JavaScript para auto-focus, sonidos y atajos de teclado
+st.markdown("""
+<script>
+// Auto-focus en el campo de código de barras
+document.addEventListener('DOMContentLoaded', function() {
+    const barcodeInput = document.querySelector('input[data-testid="stTextInput"]');
+    if (barcodeInput) {
+        barcodeInput.focus();
+    }
+});
+
+// Función para reproducir sonidos (usando Web Audio API)
+function playSound(type) {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    if (type === 'success') {
+        oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
+        oscillator.frequency.setValueAtTime(1100, audioContext.currentTime + 0.1);
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.3);
+    } else if (type === 'error') {
+        oscillator.frequency.setValueAtTime(300, audioContext.currentTime);
+        oscillator.frequency.setValueAtTime(200, audioContext.currentTime + 0.2);
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.4);
+    } else if (type === 'warning') {
+        oscillator.frequency.setValueAtTime(500, audioContext.currentTime);
+        gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.2);
+    }
+}
+</script>
+""", unsafe_allow_html=True)
+
+
 # ========== CONFIGURACIÓN ==========
 
-# Archivo de datos local (solo para mapear código de barras -> ID de Alegra)
 ARCHIVO_INVENTARIO = "inventario.csv"
 ARCHIVO_LOG = "log_ajustes.csv"
 LOCK = threading.Lock()
 
 # Columnas del CSV
-COL_CODIGO = "Codigo"  # ID del item en Alegra
+COL_CODIGO = "Codigo"
 COL_NOMBRE = "Nombre"
 COL_STOCK = "Cantidad inicial en bodega: Principal"
 COL_BARRAS = "Codigo de barras"
@@ -32,7 +200,30 @@ ALEGRA_API_KEY = os.getenv(
     "ALEGRA_API_KEY",
     "bmFub3Ryb25pY3NhbHNvbmRlbGF0ZWNub2xvZ2lhQGdtYWlsLmNvbTphMmM4OTA3YjE1M2VmYTc0ODE5ZA=="
 )
-WAREHOUSE_ID = 1  # ID de bodega Principal en Alegra
+WAREHOUSE_ID = 1
+
+# ========== INICIALIZAR SESSION STATE ==========
+
+if "historial_sesion" not in st.session_state:
+    st.session_state.historial_sesion = []
+
+if "modo_rapido" not in st.session_state:
+    st.session_state.modo_rapido = False
+
+if "ultimo_producto" not in st.session_state:
+    st.session_state.ultimo_producto = None
+
+if "buscar_por" not in st.session_state:
+    st.session_state.buscar_por = "codigo_barras"
+
+if "auto_submit" not in st.session_state:
+    st.session_state.auto_submit = True
+
+if "sonidos_activos" not in st.session_state:
+    st.session_state.sonidos_activos = True
+
+if "codigo_actual" not in st.session_state:
+    st.session_state.codigo_actual = ""
 
 
 # ========== FUNCIONES DE API ALEGRA ==========
@@ -116,7 +307,7 @@ def guardar_log_ajuste(codigo_barras, item_id, nombre, precio, cantidad_anterior
         "cantidad_anterior": cantidad_anterior,
         "cantidad_nueva": cantidad_nueva,
         "diferencia": diferencia,
-        "tipo_ajuste": tipo_ajuste  # "in" o "out"
+        "tipo_ajuste": tipo_ajuste
     }
     
     with LOCK:
@@ -137,6 +328,24 @@ def cargar_log():
         except Exception:
             return pd.DataFrame()
     return pd.DataFrame()
+
+
+# ========== FUNCIONES DE HISTORIAL DE SESIÓN ==========
+
+def agregar_al_historial(codigo_barras, nombre, cantidad_alegra, cantidad_contada, estado):
+    """Agrega un producto al historial de la sesión actual."""
+    entry = {
+        "hora": datetime.now().strftime("%H:%M:%S"),
+        "codigo_barras": codigo_barras,
+        "nombre": nombre[:30] + "..." if len(nombre) > 30 else nombre,
+        "cantidad_alegra": cantidad_alegra,
+        "cantidad_contada": cantidad_contada,
+        "estado": estado  # "ok", "ajustado", "error"
+    }
+    st.session_state.historial_sesion.insert(0, entry)
+    # Mantener solo los últimos 50
+    if len(st.session_state.historial_sesion) > 50:
+        st.session_state.historial_sesion = st.session_state.historial_sesion[:50]
 
 
 # ========== FUNCIONES DE DATOS LOCALES ==========
@@ -163,10 +372,15 @@ def guardar_datos(df):
         df.to_csv(ARCHIVO_INVENTARIO, sep=";", index=False)
 
 
-def buscar_producto(df, codigo_barras):
-    """Busca un producto por código de barras y retorna el índice y datos"""
-    codigo_barras = str(codigo_barras).strip()
-    resultado = df[df[COL_BARRAS] == codigo_barras]
+def buscar_producto(df, termino_busqueda, tipo_busqueda="codigo_barras"):
+    """Busca un producto por código de barras o por nombre"""
+    termino = str(termino_busqueda).strip()
+    
+    if tipo_busqueda == "codigo_barras":
+        resultado = df[df[COL_BARRAS] == termino]
+    else:  # buscar por nombre
+        resultado = df[df[COL_NOMBRE].str.contains(termino, case=False, na=False)]
+    
     if not resultado.empty:
         return resultado.index[0], resultado.iloc[0]
     return None, None
@@ -204,17 +418,100 @@ def procesar_archivo_subido(archivo):
         return False
 
 
-# ========== INTERFAZ ==========
+# ========== FUNCIONES DE UI ==========
+
+def mostrar_indicador_diferencia(diferencia):
+    """Muestra un indicador visual grande según la diferencia."""
+    abs_diff = abs(diferencia)
+    
+    if diferencia == 0:
+        st.markdown("""
+        <div class="diff-ok">
+            ✅ COINCIDE<br>
+            <small>El conteo es igual al stock</small>
+        </div>
+        """, unsafe_allow_html=True)
+    elif abs_diff <= 2:
+        signo = "+" if diferencia > 0 else ""
+        st.markdown(f"""
+        <div class="diff-warning">
+            ⚠️ DIFERENCIA: {signo}{diferencia:.0f}<br>
+            <small>Pequeña diferencia detectada</small>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        signo = "+" if diferencia > 0 else ""
+        st.markdown(f"""
+        <div class="diff-danger">
+            🚨 DIFERENCIA: {signo}{diferencia:.0f}<br>
+            <small>Diferencia significativa</small>
+        </div>
+        """, unsafe_allow_html=True)
+
+
+def mostrar_historial_sesion():
+    """Muestra el historial de productos escaneados en la sesión."""
+    if not st.session_state.historial_sesion:
+        st.info("No hay productos escaneados en esta sesión")
+        return
+    
+    for item in st.session_state.historial_sesion[:10]:  # Mostrar últimos 10
+        estado_color = {
+            "ok": "success",
+            "ajustado": "warning",
+            "error": ""
+        }.get(item["estado"], "")
+        
+        diferencia = item["cantidad_contada"] - item["cantidad_alegra"]
+        diff_texto = f"({'+' if diferencia > 0 else ''}{diferencia:.0f})" if diferencia != 0 else "(=)"
+        
+        st.markdown(f"""
+        <div class="historial-item {estado_color}">
+            <strong>{item['hora']}</strong> - {item['nombre']}<br>
+            <small>📊 Alegra: {item['cantidad_alegra']:.0f} → Contado: {item['cantidad_contada']:.0f} {diff_texto}</small>
+        </div>
+        """, unsafe_allow_html=True)
+
+
+def limpiar_para_nuevo_escaneo():
+    """Limpia el estado para un nuevo escaneo."""
+    if "mostrar_confirmacion" in st.session_state:
+        del st.session_state.mostrar_confirmacion
+    if "datos_ajuste" in st.session_state:
+        del st.session_state.datos_ajuste
+    st.session_state.codigo_actual = ""
+
+
+# ========== INTERFAZ PRINCIPAL ==========
 
 st.title("📦 Inventario Scanner")
 st.markdown("Escanea códigos de barras para actualizar inventario en **Alegra** en tiempo real")
 
 # Sidebar para administración
 with st.sidebar:
-    st.header("⚙️ Administración")
+    st.header("⚙️ Configuración")
     
+    # Toggle de modo rápido
+    st.session_state.modo_rapido = st.toggle(
+        "⚡ Modo Conteo Rápido",
+        value=st.session_state.modo_rapido,
+        help="Auto-guarda al confirmar y limpia para el siguiente escaneo"
+    )
+    
+    if st.session_state.modo_rapido:
+        st.markdown('<div class="modo-rapido-activo">🚀 MODO RÁPIDO ACTIVO</div>', unsafe_allow_html=True)
+    
+    st.session_state.sonidos_activos = st.toggle(
+        "🔊 Sonidos de confirmación",
+        value=st.session_state.sonidos_activos,
+        help="Reproduce sonidos al encontrar/no encontrar productos"
+    )
+    
+    st.divider()
+    
+    # Subir archivo
     archivo_subido = st.file_uploader(
-        "Subir archivo de inventario",
+        "📁 Subir inventario",
         type=['csv', 'xlsx'],
         help="Sube el archivo CSV o Excel con el inventario"
     )
@@ -223,24 +520,29 @@ with st.sidebar:
         if st.button("📤 Cargar archivo", type="primary"):
             with st.spinner("Procesando archivo..."):
                 if procesar_archivo_subido(archivo_subido):
-                    st.success("✅ Archivo cargado correctamente")
+                    st.success("✅ Archivo cargado")
                     st.rerun()
     
     st.divider()
     
-    # Mostrar estado del inventario local
+    # Contador de progreso grande
     df = cargar_datos()
     if df is not None:
         total_productos = len(df)
         productos_contados = df[COL_CANTIDAD_ACTUAL].notna() & (df[COL_CANTIDAD_ACTUAL] != "")
         contados = productos_contados.sum()
         
-        st.metric("Total productos", total_productos)
-        st.metric("Productos contados", f"{contados} / {total_productos}")
+        st.markdown(f"""
+        <div class="progress-big">
+            <div class="number">{contados} / {total_productos}</div>
+            <div class="label">Productos contados</div>
+        </div>
+        """, unsafe_allow_html=True)
         
         if total_productos > 0:
             progreso = contados / total_productos
             st.progress(progreso)
+            st.caption(f"{progreso*100:.1f}% completado")
         
         st.divider()
         
@@ -252,12 +554,12 @@ with st.sidebar:
             mime="text/csv"
         )
     
-    # Descargar log de ajustes
+    # Log de ajustes
     df_log = cargar_log()
     if not df_log.empty:
         st.divider()
         st.subheader("📋 Log de Ajustes")
-        st.metric("Ajustes realizados", len(df_log))
+        st.metric("Ajustes hoy", len(df_log))
         
         log_csv = df_log.to_csv(index=False).encode('utf-8')
         st.download_button(
@@ -268,38 +570,90 @@ with st.sidebar:
         )
     
     st.divider()
+    
+    # Historial de sesión en sidebar
+    with st.expander("📜 Historial de sesión", expanded=False):
+        mostrar_historial_sesion()
+        if st.session_state.historial_sesion:
+            if st.button("🗑️ Limpiar historial"):
+                st.session_state.historial_sesion = []
+                st.rerun()
+    
     st.caption("🔗 Conectado a Alegra API")
 
-# Contenido principal
+
+# ========== CONTENIDO PRINCIPAL ==========
+
 df = cargar_datos()
 
 if df is None:
     st.warning("⚠️ No hay inventario cargado. Sube un archivo en la barra lateral.")
     st.stop()
 
-# Input para código de barras
-st.subheader("🔍 Escanear producto")
-codigo_input = st.text_input(
-    "Código de barras:",
-    placeholder="Escanea o escribe el código de barras",
-    key="codigo_barras",
-    label_visibility="collapsed"
-)
+# Selector de tipo de búsqueda
+st.subheader("🔍 Buscar producto")
 
-# Buscar producto cuando se ingresa un código
-if codigo_input:
-    idx, producto_local = buscar_producto(df, codigo_input)
+col_busqueda1, col_busqueda2 = st.columns([3, 1])
+
+with col_busqueda2:
+    tipo_busqueda = st.radio(
+        "Buscar por:",
+        ["Código de barras", "Nombre"],
+        horizontal=True,
+        label_visibility="collapsed"
+    )
+    st.session_state.buscar_por = "codigo_barras" if tipo_busqueda == "Código de barras" else "nombre"
+
+with col_busqueda1:
+    if st.session_state.buscar_por == "codigo_barras":
+        # Input para código de barras con inputmode numérico para móviles
+        codigo_input = st.text_input(
+            "Código de barras:",
+            placeholder="Escanea o escribe el código de barras...",
+            key="input_codigo",
+            label_visibility="collapsed",
+            autocomplete="off"
+        )
+    else:
+        # Input para búsqueda por nombre
+        nombre_input = st.text_input(
+            "Nombre del producto:",
+            placeholder="Escribe el nombre del producto...",
+            key="input_nombre",
+            label_visibility="collapsed"
+        )
+        codigo_input = None
+
+# Atajos de teclado info
+st.markdown("""
+<small>
+<span class="keyboard-hint">Enter</span> Buscar/Guardar &nbsp;&nbsp;
+<span class="keyboard-hint">Esc</span> Limpiar
+</small>
+""", unsafe_allow_html=True)
+
+# Determinar qué término buscar
+termino_busqueda = codigo_input if st.session_state.buscar_por == "codigo_barras" else nombre_input if 'nombre_input' in dir() else None
+
+# Buscar producto cuando se ingresa un término
+if termino_busqueda:
+    idx, producto_local = buscar_producto(df, termino_busqueda, st.session_state.buscar_por)
     
     if producto_local is not None:
         item_id = producto_local[COL_CODIGO]
+        codigo_barras_producto = producto_local[COL_BARRAS]
         
-        with st.spinner("Consultando Alegra..."):
+        with st.spinner("🔄 Consultando Alegra..."):
             item_alegra = consultar_item_alegra(item_id)
         
         if item_alegra:
             datos = extraer_datos_item(item_alegra)
             
             if datos:
+                # Sonido de éxito
+                if st.session_state.sonidos_activos:
+                    st.markdown('<script>playSound("success")</script>', unsafe_allow_html=True)
+                
                 st.success("✅ Producto encontrado en Alegra")
                 
                 # Mostrar información del producto
@@ -311,7 +665,8 @@ if codigo_input:
                 
                 with col2:
                     st.markdown("**Stock Alegra:**")
-                    st.info(f"{datos['cantidad_disponible']:.0f} unidades")
+                    stock_color = "🟢" if datos['cantidad_disponible'] > 0 else "🔴"
+                    st.info(f"{stock_color} {datos['cantidad_disponible']:.0f} unidades")
                 
                 with col3:
                     st.markdown("**Precio:**")
@@ -320,7 +675,7 @@ if codigo_input:
                 # Mostrar si ya fue contado
                 cantidad_previa = producto_local.get(COL_CANTIDAD_ACTUAL, "")
                 if pd.notna(cantidad_previa) and cantidad_previa != "":
-                    st.warning(f"⚠️ Este producto ya fue contado hoy: **{cantidad_previa}** unidades")
+                    st.warning(f"⚠️ Este producto ya fue contado: **{cantidad_previa}** unidades")
                 
                 # Input para cantidad contada
                 st.markdown("---")
@@ -329,43 +684,46 @@ if codigo_input:
                 # Si el stock en Alegra es negativo, iniciar en 0
                 valor_inicial = max(0, int(datos["cantidad_disponible"]))
                 
+                # Input numérico con inputmode para móviles
                 cantidad_contada = st.number_input(
                     "Cantidad física contada:",
                     min_value=0,
                     step=1,
                     value=valor_inicial,
-                    key="cantidad_contada"
+                    key="cantidad_contada",
+                    help="Escribe la cantidad que contaste físicamente en tienda"
                 )
                 
                 # Calcular diferencia
                 diferencia = cantidad_contada - datos["cantidad_disponible"]
                 
+                # Mostrar indicador visual grande
+                st.markdown("---")
+                mostrar_indicador_diferencia(diferencia)
+                
                 if diferencia != 0:
                     if diferencia > 0:
-                        st.info(f"📈 Se agregará **+{diferencia:.0f}** unidades al inventario")
                         tipo_ajuste = "in"
                     else:
-                        st.info(f"📉 Se quitarán **{abs(diferencia):.0f}** unidades del inventario")
                         tipo_ajuste = "out"
                 else:
-                    st.success("✓ El conteo coincide con el stock en Alegra")
                     tipo_ajuste = None
+                
+                st.markdown("---")
                 
                 col_btn1, col_btn2 = st.columns(2)
                 
                 with col_btn1:
-                    # Botón que abre el diálogo de confirmación
                     if diferencia != 0:
                         btn_label = "💾 Guardar y Sincronizar"
                     else:
                         btn_label = "💾 Guardar conteo"
                     
-                    if st.button(btn_label, type="primary", use_container_width=True):
+                    if st.button(btn_label, type="primary", use_container_width=True, key="btn_guardar"):
                         if diferencia != 0:
-                            # Guardar en session_state para mostrar diálogo
                             st.session_state.mostrar_confirmacion = True
                             st.session_state.datos_ajuste = {
-                                "codigo_barras": codigo_input,
+                                "codigo_barras": codigo_barras_producto,
                                 "item_id": item_id,
                                 "nombre": datos["nombre"],
                                 "precio": datos["precio"],
@@ -383,32 +741,57 @@ if codigo_input:
                             if df_actualizado is not None:
                                 df_actualizado.at[idx, COL_CANTIDAD_ACTUAL] = cantidad_contada
                                 guardar_datos(df_actualizado)
+                            
+                            # Agregar al historial
+                            agregar_al_historial(
+                                codigo_barras_producto,
+                                datos["nombre"],
+                                datos["cantidad_disponible"],
+                                cantidad_contada,
+                                "ok"
+                            )
+                            
                             st.success("✅ Conteo guardado (sin cambios en Alegra)")
+                            
+                            if st.session_state.modo_rapido:
+                                limpiar_para_nuevo_escaneo()
+                                st.rerun()
                 
                 with col_btn2:
-                    if st.button("🔄 Nuevo escaneo", use_container_width=True):
-                        # Limpiar session state
-                        if "mostrar_confirmacion" in st.session_state:
-                            del st.session_state.mostrar_confirmacion
-                        if "datos_ajuste" in st.session_state:
-                            del st.session_state.datos_ajuste
+                    if st.button("🔄 Nuevo escaneo", use_container_width=True, key="btn_nuevo"):
+                        limpiar_para_nuevo_escaneo()
                         st.rerun()
             else:
                 st.error("❌ Error al procesar datos del item")
         else:
+            # Sonido de error
+            if st.session_state.sonidos_activos:
+                st.markdown('<script>playSound("error")</script>', unsafe_allow_html=True)
             st.error(f"❌ No se pudo consultar el item ID {item_id} en Alegra")
     else:
-        st.error(f"❌ Producto no encontrado con código: **{codigo_input}**")
-        st.info("Verifica que el código de barras esté en el archivo CSV cargado")
+        # Sonido de error
+        if st.session_state.sonidos_activos:
+            st.markdown('<script>playSound("error")</script>', unsafe_allow_html=True)
+        st.error(f"❌ Producto no encontrado: **{termino_busqueda}**")
+        st.info("Verifica que el código o nombre esté en el archivo CSV cargado")
+        
+        # Sugerencia: mostrar productos similares si busca por nombre
+        if st.session_state.buscar_por == "nombre" and COL_NOMBRE in df.columns:
+            similares = df[df[COL_NOMBRE].str.contains(termino_busqueda[:3], case=False, na=False)].head(5)
+            if not similares.empty:
+                st.markdown("**¿Quisiste decir?**")
+                for _, row in similares.iterrows():
+                    st.markdown(f"- {row[COL_NOMBRE]} (Código: {row[COL_BARRAS]})")
+
 
 # ========== DIÁLOGO DE CONFIRMACIÓN ==========
+
 if st.session_state.get("mostrar_confirmacion", False):
     datos = st.session_state.datos_ajuste
     
     st.markdown("---")
     st.markdown("### ⚠️ Confirmar ajuste de inventario")
     
-    # Mostrar resumen del ajuste
     st.warning(f"""
     **¿Estás seguro de que el artículo "{datos['nombre']}" tiene {datos['cantidad_contada']:.0f} unidades en tienda?**
     
@@ -422,8 +805,7 @@ if st.session_state.get("mostrar_confirmacion", False):
     col_confirm1, col_confirm2 = st.columns(2)
     
     with col_confirm1:
-        if st.button("✅ Sí, confirmar ajuste", type="primary", use_container_width=True):
-            # Enviar a Alegra
+        if st.button("✅ Sí, confirmar", type="primary", use_container_width=True, key="btn_confirmar"):
             with st.spinner("Enviando ajuste a Alegra..."):
                 resultado = crear_ajuste_inventario(
                     item_id=datos["item_id"],
@@ -433,6 +815,10 @@ if st.session_state.get("mostrar_confirmacion", False):
                 )
             
             if resultado:
+                # Sonido de éxito
+                if st.session_state.sonidos_activos:
+                    st.markdown('<script>playSound("success")</script>', unsafe_allow_html=True)
+                
                 # Guardar en CSV local
                 df_actualizado = cargar_datos()
                 if df_actualizado is not None:
@@ -451,23 +837,42 @@ if st.session_state.get("mostrar_confirmacion", False):
                     tipo_ajuste=datos["tipo_ajuste"]
                 )
                 
+                # Agregar al historial
+                agregar_al_historial(
+                    datos["codigo_barras"],
+                    datos["nombre"],
+                    datos["cantidad_anterior"],
+                    datos["cantidad_contada"],
+                    "ajustado"
+                )
+                
                 # Limpiar session state
                 del st.session_state.mostrar_confirmacion
                 del st.session_state.datos_ajuste
                 
                 st.success(f"✅ Inventario actualizado en Alegra!")
                 st.success(f"Nueva cantidad: **{datos['cantidad_contada']:.0f}** unidades")
-                st.balloons()
+                
+                if st.session_state.modo_rapido:
+                    st.info("🚀 Modo rápido: Listo para siguiente escaneo")
+                    limpiar_para_nuevo_escaneo()
+                    st.rerun()
+                else:
+                    st.balloons()
             else:
+                if st.session_state.sonidos_activos:
+                    st.markdown('<script>playSound("error")</script>', unsafe_allow_html=True)
                 st.error("❌ Error al actualizar Alegra. Intenta de nuevo.")
     
     with col_confirm2:
-        if st.button("❌ Cancelar", use_container_width=True):
+        if st.button("❌ Cancelar", use_container_width=True, key="btn_cancelar"):
             del st.session_state.mostrar_confirmacion
             del st.session_state.datos_ajuste
             st.rerun()
 
-# Sección para ver productos
+
+# ========== SECCIÓN DE PRODUCTOS ==========
+
 st.divider()
 with st.expander("📋 Ver todos los productos", expanded=False):
     col_filtro1, col_filtro2 = st.columns(2)
@@ -510,14 +915,15 @@ with st.expander("📋 Ver todos los productos", expanded=False):
     
     st.caption(f"Mostrando {len(df_filtrado)} de {len(df)} productos")
 
-# Sección para ver log de ajustes
+
+# ========== HISTORIAL DE AJUSTES ==========
+
 with st.expander("📜 Ver historial de ajustes", expanded=False):
     df_log = cargar_log()
     
     if df_log.empty:
         st.info("No hay ajustes registrados todavía")
     else:
-        # Mostrar últimos ajustes primero
         df_log_ordenado = df_log.sort_values("fecha_hora", ascending=False)
         
         st.dataframe(
@@ -538,3 +944,16 @@ with st.expander("📜 Ver historial de ajustes", expanded=False):
         )
         
         st.caption(f"Total: {len(df_log)} ajustes registrados")
+
+
+# ========== FOOTER CON ATAJOS ==========
+
+st.markdown("---")
+st.markdown("""
+<div style="text-align: center; color: #666; font-size: 12px;">
+    <strong>Atajos de teclado:</strong><br>
+    <span class="keyboard-hint">Enter</span> Buscar producto / Guardar conteo &nbsp;|&nbsp;
+    <span class="keyboard-hint">Tab</span> Siguiente campo &nbsp;|&nbsp;
+    <span class="keyboard-hint">Esc</span> Cancelar/Limpiar
+</div>
+""", unsafe_allow_html=True)
