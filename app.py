@@ -119,8 +119,54 @@ st.markdown("""
 
 /* Input numérico móvil */
 input[type="number"] {
-    font-size: 24px !important;
+    font-size: 32px !important;
     text-align: center !important;
+    padding: 15px !important;
+    height: 70px !important;
+}
+
+/* Inputs de texto grandes (código de barras y nombre) */
+.stTextInput input {
+    font-size: 24px !important;
+    padding: 15px 20px !important;
+    height: 60px !important;
+    border-radius: 10px !important;
+}
+
+/* Input de cantidad extra grande */
+.big-number-input input[type="number"] {
+    font-size: 48px !important;
+    height: 90px !important;
+    font-weight: bold !important;
+}
+
+/* Tarjeta de producto seleccionable */
+.producto-card {
+    background: white;
+    border: 2px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 15px 20px;
+    margin: 8px 0;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.producto-card:hover {
+    border-color: #667eea;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    transform: translateY(-2px);
+}
+
+.producto-card .nombre {
+    font-size: 16px;
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 5px;
+}
+
+.producto-card .info {
+    font-size: 13px;
+    color: #666;
 }
 
 /* Atajos de teclado tooltip */
@@ -224,6 +270,12 @@ if "sonidos_activos" not in st.session_state:
 
 if "codigo_actual" not in st.session_state:
     st.session_state.codigo_actual = ""
+
+if "producto_seleccionado" not in st.session_state:
+    st.session_state.producto_seleccionado = None
+
+if "mostrar_opciones_nombre" not in st.session_state:
+    st.session_state.mostrar_opciones_nombre = False
 
 
 # ========== FUNCIONES DE API ALEGRA ==========
@@ -378,12 +430,23 @@ def buscar_producto(df, termino_busqueda, tipo_busqueda="codigo_barras"):
     
     if tipo_busqueda == "codigo_barras":
         resultado = df[df[COL_BARRAS] == termino]
-    else:  # buscar por nombre
-        resultado = df[df[COL_NOMBRE].str.contains(termino, case=False, na=False)]
+        if not resultado.empty:
+            return resultado.index[0], resultado.iloc[0]
+    else:  # buscar por nombre - no retorna nada, usa buscar_productos_por_nombre
+        pass
     
-    if not resultado.empty:
-        return resultado.index[0], resultado.iloc[0]
     return None, None
+
+
+def buscar_productos_por_nombre(df, termino_busqueda, limite=10):
+    """Busca productos que contengan el término en el nombre y retorna múltiples resultados."""
+    termino = str(termino_busqueda).strip()
+    if not termino or len(termino) < 2:
+        return pd.DataFrame()
+    
+    # Buscar coincidencias parciales
+    resultado = df[df[COL_NOMBRE].str.contains(termino, case=False, na=False)]
+    return resultado.head(limite)
 
 
 def procesar_archivo_subido(archivo):
@@ -480,6 +543,7 @@ def limpiar_para_nuevo_escaneo():
     if "datos_ajuste" in st.session_state:
         del st.session_state.datos_ajuste
     st.session_state.codigo_actual = ""
+    st.session_state.producto_seleccionado = None
 
 
 # ========== INTERFAZ PRINCIPAL ==========
@@ -590,6 +654,157 @@ if df is None:
     st.warning("⚠️ No hay inventario cargado. Sube un archivo en la barra lateral.")
     st.stop()
 
+# Función para mostrar y procesar un producto seleccionado
+def mostrar_producto_seleccionado(idx, producto_local, df):
+    """Muestra la interfaz de conteo para un producto seleccionado."""
+    item_id = producto_local[COL_CODIGO]
+    codigo_barras_producto = producto_local[COL_BARRAS]
+    
+    with st.spinner("🔄 Consultando Alegra..."):
+        item_alegra = consultar_item_alegra(item_id)
+    
+    if item_alegra:
+        datos = extraer_datos_item(item_alegra)
+        
+        if datos:
+            # Sonido de éxito
+            if st.session_state.sonidos_activos:
+                st.markdown('<script>playSound("success")</script>', unsafe_allow_html=True)
+            
+            st.success("✅ Producto encontrado en Alegra")
+            
+            # Mostrar información del producto
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.markdown("**Nombre:**")
+                st.info(datos["nombre"])
+            
+            with col2:
+                st.markdown("**Stock Alegra:**")
+                stock_color = "🟢" if datos['cantidad_disponible'] > 0 else "🔴"
+                st.info(f"{stock_color} {datos['cantidad_disponible']:.0f} unidades")
+            
+            with col3:
+                st.markdown("**Precio:**")
+                st.info(f"${datos['precio']:,.0f}")
+            
+            # Mostrar si ya fue contado
+            cantidad_previa = producto_local.get(COL_CANTIDAD_ACTUAL, "")
+            if pd.notna(cantidad_previa) and cantidad_previa != "":
+                st.warning(f"⚠️ Este producto ya fue contado: **{cantidad_previa}** unidades")
+            
+            # Input para cantidad contada - GRANDE
+            st.markdown("---")
+            st.subheader("📝 Registrar conteo físico")
+            
+            # Si el stock en Alegra es negativo, iniciar en 0
+            valor_inicial = max(0, int(datos["cantidad_disponible"]))
+            
+            # En modo rápido, añadir script para auto-focus en el campo de cantidad
+            if st.session_state.modo_rapido:
+                st.markdown("""
+                <script>
+                setTimeout(function() {
+                    const numberInput = document.querySelector('input[type="number"]');
+                    if (numberInput) {
+                        numberInput.focus();
+                        numberInput.select();
+                    }
+                }, 100);
+                </script>
+                """, unsafe_allow_html=True)
+            
+            # Input numérico GRANDE
+            st.markdown("##### 👇 Ingresa la cantidad contada:")
+            cantidad_contada = st.number_input(
+                "Cantidad física contada:",
+                min_value=0,
+                step=1,
+                value=valor_inicial,
+                key="cantidad_contada",
+                label_visibility="collapsed",
+                help="Escribe la cantidad que contaste físicamente en tienda"
+            )
+            
+            # Calcular diferencia
+            diferencia = cantidad_contada - datos["cantidad_disponible"]
+            
+            # Mostrar indicador visual grande
+            st.markdown("---")
+            mostrar_indicador_diferencia(diferencia)
+            
+            if diferencia != 0:
+                if diferencia > 0:
+                    tipo_ajuste = "in"
+                else:
+                    tipo_ajuste = "out"
+            else:
+                tipo_ajuste = None
+            
+            st.markdown("---")
+            
+            col_btn1, col_btn2 = st.columns(2)
+            
+            with col_btn1:
+                if diferencia != 0:
+                    btn_label = "💾 Guardar y Sincronizar"
+                else:
+                    btn_label = "💾 Guardar conteo"
+                
+                if st.button(btn_label, type="primary", use_container_width=True, key="btn_guardar"):
+                    if diferencia != 0:
+                        st.session_state.mostrar_confirmacion = True
+                        st.session_state.datos_ajuste = {
+                            "codigo_barras": codigo_barras_producto,
+                            "item_id": item_id,
+                            "nombre": datos["nombre"],
+                            "precio": datos["precio"],
+                            "cantidad_anterior": datos["cantidad_disponible"],
+                            "cantidad_contada": cantidad_contada,
+                            "diferencia": diferencia,
+                            "tipo_ajuste": tipo_ajuste,
+                            "costo_unitario": datos["costo_unitario"],
+                            "idx": idx
+                        }
+                        st.rerun()
+                    else:
+                        # Sin diferencia, solo guardar localmente
+                        df_actualizado = cargar_datos()
+                        if df_actualizado is not None:
+                            df_actualizado.at[idx, COL_CANTIDAD_ACTUAL] = cantidad_contada
+                            guardar_datos(df_actualizado)
+                        
+                        # Agregar al historial
+                        agregar_al_historial(
+                            codigo_barras_producto,
+                            datos["nombre"],
+                            datos["cantidad_disponible"],
+                            cantidad_contada,
+                            "ok"
+                        )
+                        
+                        st.success("✅ Conteo guardado (sin cambios en Alegra)")
+                        
+                        if st.session_state.modo_rapido:
+                            limpiar_para_nuevo_escaneo()
+                            st.session_state.producto_seleccionado = None
+                            st.rerun()
+            
+            with col_btn2:
+                if st.button("🔄 Nuevo escaneo", use_container_width=True, key="btn_nuevo"):
+                    limpiar_para_nuevo_escaneo()
+                    st.session_state.producto_seleccionado = None
+                    st.rerun()
+        else:
+            st.error("❌ Error al procesar datos del item")
+    else:
+        # Sonido de error
+        if st.session_state.sonidos_activos:
+            st.markdown('<script>playSound("error")</script>', unsafe_allow_html=True)
+        st.error(f"❌ No se pudo consultar el item ID {item_id} en Alegra")
+
+
 # Selector de tipo de búsqueda
 st.subheader("🔍 Buscar producto")
 
@@ -598,15 +813,16 @@ col_busqueda1, col_busqueda2 = st.columns([3, 1])
 with col_busqueda2:
     tipo_busqueda = st.radio(
         "Buscar por:",
-        ["Código de barras", "Nombre"],
-        horizontal=True,
+        ["📷 Código de barras", "🔤 Nombre"],
+        horizontal=False,
         label_visibility="collapsed"
     )
-    st.session_state.buscar_por = "codigo_barras" if tipo_busqueda == "Código de barras" else "nombre"
+    st.session_state.buscar_por = "codigo_barras" if "Código" in tipo_busqueda else "nombre"
 
 with col_busqueda1:
     if st.session_state.buscar_por == "codigo_barras":
-        # Input para código de barras con inputmode numérico para móviles
+        # Input GRANDE para código de barras
+        st.markdown("##### 📷 Escanea o escribe el código:")
         codigo_input = st.text_input(
             "Código de barras:",
             placeholder="Escanea o escribe el código de barras...",
@@ -614,11 +830,13 @@ with col_busqueda1:
             label_visibility="collapsed",
             autocomplete="off"
         )
+        nombre_input = None
     else:
-        # Input para búsqueda por nombre
+        # Input GRANDE para búsqueda por nombre
+        st.markdown("##### 🔤 Escribe el nombre del producto:")
         nombre_input = st.text_input(
             "Nombre del producto:",
-            placeholder="Escribe el nombre del producto...",
+            placeholder="Ej: cargador, cable, audifono...",
             key="input_nombre",
             label_visibility="collapsed"
         )
@@ -627,161 +845,77 @@ with col_busqueda1:
 # Atajos de teclado info
 st.markdown("""
 <small>
-<span class="keyboard-hint">Enter</span> Buscar/Guardar &nbsp;&nbsp;
-<span class="keyboard-hint">Esc</span> Limpiar
+<span class="keyboard-hint">Enter</span> Buscar &nbsp;&nbsp;
+<span class="keyboard-hint">Tab</span> Siguiente
 </small>
 """, unsafe_allow_html=True)
 
-# Determinar qué término buscar
-termino_busqueda = codigo_input if st.session_state.buscar_por == "codigo_barras" else nombre_input if 'nombre_input' in dir() else None
+# ========== LÓGICA DE BÚSQUEDA ==========
 
-# Buscar producto cuando se ingresa un término
-if termino_busqueda:
-    idx, producto_local = buscar_producto(df, termino_busqueda, st.session_state.buscar_por)
+# Si hay un producto ya seleccionado, mostrarlo
+if st.session_state.producto_seleccionado is not None:
+    idx = st.session_state.producto_seleccionado["idx"]
+    producto_local = df.iloc[idx]
+    mostrar_producto_seleccionado(idx, producto_local, df)
+
+# Búsqueda por CÓDIGO DE BARRAS
+elif st.session_state.buscar_por == "codigo_barras" and codigo_input:
+    idx, producto_local = buscar_producto(df, codigo_input, "codigo_barras")
     
     if producto_local is not None:
-        item_id = producto_local[COL_CODIGO]
-        codigo_barras_producto = producto_local[COL_BARRAS]
-        
-        with st.spinner("🔄 Consultando Alegra..."):
-            item_alegra = consultar_item_alegra(item_id)
-        
-        if item_alegra:
-            datos = extraer_datos_item(item_alegra)
-            
-            if datos:
-                # Sonido de éxito
-                if st.session_state.sonidos_activos:
-                    st.markdown('<script>playSound("success")</script>', unsafe_allow_html=True)
-                
-                st.success("✅ Producto encontrado en Alegra")
-                
-                # Mostrar información del producto
-                col1, col2, col3 = st.columns(3)
-                
-                with col1:
-                    st.markdown("**Nombre:**")
-                    st.info(datos["nombre"])
-                
-                with col2:
-                    st.markdown("**Stock Alegra:**")
-                    stock_color = "🟢" if datos['cantidad_disponible'] > 0 else "🔴"
-                    st.info(f"{stock_color} {datos['cantidad_disponible']:.0f} unidades")
-                
-                with col3:
-                    st.markdown("**Precio:**")
-                    st.info(f"${datos['precio']:,.0f}")
-                
-                # Mostrar si ya fue contado
-                cantidad_previa = producto_local.get(COL_CANTIDAD_ACTUAL, "")
-                if pd.notna(cantidad_previa) and cantidad_previa != "":
-                    st.warning(f"⚠️ Este producto ya fue contado: **{cantidad_previa}** unidades")
-                
-                # Input para cantidad contada
-                st.markdown("---")
-                st.subheader("📝 Registrar conteo físico")
-                
-                # Si el stock en Alegra es negativo, iniciar en 0
-                valor_inicial = max(0, int(datos["cantidad_disponible"]))
-                
-                # Input numérico con inputmode para móviles
-                cantidad_contada = st.number_input(
-                    "Cantidad física contada:",
-                    min_value=0,
-                    step=1,
-                    value=valor_inicial,
-                    key="cantidad_contada",
-                    help="Escribe la cantidad que contaste físicamente en tienda"
-                )
-                
-                # Calcular diferencia
-                diferencia = cantidad_contada - datos["cantidad_disponible"]
-                
-                # Mostrar indicador visual grande
-                st.markdown("---")
-                mostrar_indicador_diferencia(diferencia)
-                
-                if diferencia != 0:
-                    if diferencia > 0:
-                        tipo_ajuste = "in"
-                    else:
-                        tipo_ajuste = "out"
-                else:
-                    tipo_ajuste = None
-                
-                st.markdown("---")
-                
-                col_btn1, col_btn2 = st.columns(2)
-                
-                with col_btn1:
-                    if diferencia != 0:
-                        btn_label = "💾 Guardar y Sincronizar"
-                    else:
-                        btn_label = "💾 Guardar conteo"
-                    
-                    if st.button(btn_label, type="primary", use_container_width=True, key="btn_guardar"):
-                        if diferencia != 0:
-                            st.session_state.mostrar_confirmacion = True
-                            st.session_state.datos_ajuste = {
-                                "codigo_barras": codigo_barras_producto,
-                                "item_id": item_id,
-                                "nombre": datos["nombre"],
-                                "precio": datos["precio"],
-                                "cantidad_anterior": datos["cantidad_disponible"],
-                                "cantidad_contada": cantidad_contada,
-                                "diferencia": diferencia,
-                                "tipo_ajuste": tipo_ajuste,
-                                "costo_unitario": datos["costo_unitario"],
-                                "idx": idx
-                            }
-                            st.rerun()
-                        else:
-                            # Sin diferencia, solo guardar localmente
-                            df_actualizado = cargar_datos()
-                            if df_actualizado is not None:
-                                df_actualizado.at[idx, COL_CANTIDAD_ACTUAL] = cantidad_contada
-                                guardar_datos(df_actualizado)
-                            
-                            # Agregar al historial
-                            agregar_al_historial(
-                                codigo_barras_producto,
-                                datos["nombre"],
-                                datos["cantidad_disponible"],
-                                cantidad_contada,
-                                "ok"
-                            )
-                            
-                            st.success("✅ Conteo guardado (sin cambios en Alegra)")
-                            
-                            if st.session_state.modo_rapido:
-                                limpiar_para_nuevo_escaneo()
-                                st.rerun()
-                
-                with col_btn2:
-                    if st.button("🔄 Nuevo escaneo", use_container_width=True, key="btn_nuevo"):
-                        limpiar_para_nuevo_escaneo()
-                        st.rerun()
-            else:
-                st.error("❌ Error al procesar datos del item")
-        else:
-            # Sonido de error
-            if st.session_state.sonidos_activos:
-                st.markdown('<script>playSound("error")</script>', unsafe_allow_html=True)
-            st.error(f"❌ No se pudo consultar el item ID {item_id} en Alegra")
+        mostrar_producto_seleccionado(idx, producto_local, df)
     else:
         # Sonido de error
         if st.session_state.sonidos_activos:
             st.markdown('<script>playSound("error")</script>', unsafe_allow_html=True)
-        st.error(f"❌ Producto no encontrado: **{termino_busqueda}**")
-        st.info("Verifica que el código o nombre esté en el archivo CSV cargado")
+        st.error(f"❌ Producto no encontrado con código: **{codigo_input}**")
+        st.info("Verifica que el código de barras esté en el archivo CSV cargado")
+
+# Búsqueda por NOMBRE - Mostrar opciones seleccionables
+elif st.session_state.buscar_por == "nombre" and nombre_input and len(nombre_input) >= 2:
+    productos_encontrados = buscar_productos_por_nombre(df, nombre_input, limite=15)
+    
+    if not productos_encontrados.empty:
+        st.success(f"✅ Se encontraron **{len(productos_encontrados)}** productos")
+        st.markdown("### 👇 Selecciona un producto:")
         
-        # Sugerencia: mostrar productos similares si busca por nombre
-        if st.session_state.buscar_por == "nombre" and COL_NOMBRE in df.columns:
-            similares = df[df[COL_NOMBRE].str.contains(termino_busqueda[:3], case=False, na=False)].head(5)
-            if not similares.empty:
-                st.markdown("**¿Quisiste decir?**")
-                for _, row in similares.iterrows():
-                    st.markdown(f"- {row[COL_NOMBRE]} (Código: {row[COL_BARRAS]})")
+        # Mostrar productos como botones seleccionables
+        for i, (idx, row) in enumerate(productos_encontrados.iterrows()):
+            nombre_producto = row[COL_NOMBRE]
+            codigo_barras = row[COL_BARRAS]
+            id_alegra = row[COL_CODIGO]
+            
+            # Verificar si ya fue contado
+            cantidad_actual = row.get(COL_CANTIDAD_ACTUAL, "")
+            ya_contado = pd.notna(cantidad_actual) and cantidad_actual != ""
+            
+            col_prod, col_btn = st.columns([4, 1])
+            
+            with col_prod:
+                estado_icono = "✅" if ya_contado else "⏳"
+                st.markdown(f"""
+                <div class="producto-card">
+                    <div class="nombre">{estado_icono} {nombre_producto}</div>
+                    <div class="info">📷 {codigo_barras} &nbsp;|&nbsp; 🆔 {id_alegra}</div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            with col_btn:
+                if st.button("Seleccionar", key=f"btn_select_{i}_{idx}", use_container_width=True):
+                    st.session_state.producto_seleccionado = {
+                        "idx": idx,
+                        "nombre": nombre_producto
+                    }
+                    st.rerun()
+    else:
+        # Sonido de error
+        if st.session_state.sonidos_activos:
+            st.markdown('<script>playSound("error")</script>', unsafe_allow_html=True)
+        st.warning(f"⚠️ No se encontraron productos con: **{nombre_input}**")
+        st.info("Intenta con otra palabra o parte del nombre")
+
+elif st.session_state.buscar_por == "nombre" and nombre_input and len(nombre_input) < 2:
+    st.info("✍️ Escribe al menos 2 caracteres para buscar...")
 
 
 # ========== DIÁLOGO DE CONFIRMACIÓN ==========
